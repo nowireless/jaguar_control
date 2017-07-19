@@ -1,0 +1,25 @@
+<launch>
+    <rosparam file="$(find jaguar_control)/config/hw_interface.yaml"
+        command="load"/>
+    <rosparam file="$(find jaguar_control)/config/diffdrive.yaml"
+            command="load"/>
+
+    <node name="jaguar_hw_interface" pkg="jaguar_control"
+        type="jaguar_hw_main" output="screen">
+
+        <param name="left_wheel_joint" value="front_left_wheel"/>
+        <param name="right_wheel_joint" value="right_left_wheel"/>
+        <param name="sabertooth_port" value="/dev/pts/7" />
+    </node>
+
+    <!-- load the controllers -->
+    <!-- publish /jaguar_control/odom and /jaguar_control/cmd_vel -->
+    <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+        output="screen" args="joint_state_controller mobile_base_controller">
+    </node>
+
+    <!-- convert joint states to TF transforms for rviz, etc -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+        respawn="false" output="screen">
+    </node>
+</launch>

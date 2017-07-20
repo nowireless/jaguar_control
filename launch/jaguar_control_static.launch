@@ -1,0 +1,65 @@
+<launch>
+    <rosparam file="$(find jaguar_control)/config/hw_interface.yaml"
+        command="load"/>
+    <rosparam file="$(find jaguar_control)/config/diffdrive.yaml"
+            command="load"/>
+   
+    <node name="static_odom" pkg="jaguar_control" type="static_odom_pub.py" respawn="false"/> 
+
+    <!-- convert joint states to TF transforms for rviz, etc -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+        respawn="false" output="screen">
+    </node>
+
+    
+
+    <node name="front_left_wheel_joint_state" pkg="jaguar_control" type="static_joint_state_pub.py">
+        <param name="joint" value="left_front_wheel_joint"/>
+        <param name="pos" value="0"/>
+        <param name="vel" value="0"/>
+        <param name="effort" value="0"/>
+        <param name="rate" value="1"/>
+    </node>
+
+    <node name="front_right_wheel_joint_state" pkg="jaguar_control" type="static_joint_state_pub.py">
+        <param name="joint" value="right_front_wheel_joint"/>
+        <param name="pos" value="0"/>
+        <param name="vel" value="0"/>
+        <param name="effort" value="0"/>
+        <param name="rate" value="1"/>
+    </node>
+
+    <node name="back_left_wheel_joint_state" pkg="jaguar_control" type="static_joint_state_pub.py">
+        <param name="joint" value="left_back_wheel_joint"/>
+        <param name="pos" value="0"/>
+        <param name="vel" value="0"/>
+        <param name="effort" value="0"/>
+        <param name="rate" value="1"/>
+    </node>
+
+    <node name="back_rightfront_wheel_joint_state" pkg="jaguar_control" type="static_joint_state_pub.py">
+        <param name="joint" value="right_back_wheel_joint"/>
+        <param name="pos" value="0"/>
+        <param name="vel" value="0"/>
+        <param name="effort" value="0"/>
+        <param name="rate" value="1"/>
+    </node>
+
+    <node name="left_drive_wheel_joint_state" pkg="jaguar_control" type="static_joint_state_pub.py">
+        <param name="joint" value="left_drive_wheel_joint"/>
+        <param name="pos" value="0"/>
+        <param name="vel" value="0"/>
+        <param name="effort" value="0"/>
+        <param name="rate" value="1"/>
+    </node>
+
+    <node name="right_drive_wheel_joint_state" pkg="jaguar_control" type="static_joint_state_pub.py">
+        <param name="joint" value="right_drive_wheel_joint"/>
+        <param name="pos" value="0"/>
+        <param name="vel" value="0"/>
+        <param name="effort" value="0"/>
+        <param name="rate" value="1"/>
+    </node>
+
+
+</launch>

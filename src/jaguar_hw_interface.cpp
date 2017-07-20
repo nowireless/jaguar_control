@@ -220,10 +220,10 @@ namespace jaguar_control {
     void JaguarHWInterface::odomCallback(Side side, double pos, double vel) {
         if(kLeftJaguar == side) {
             leftPos = pos * M_2_PI; // 1 Revolution * (2PI RAD/1 Rev)
-            leftVel = vel * M_2_PI / 60.0; // (1 Rev / Min) * (1 Min / 60 Seconds) * (2PI RAD/1 Rev) => Rad/s
+            leftVel = vel * M_2_PI / 60.0; // (1 Rev / Min) * (60 Seconds / 1 Min) * (2PI RAD/1 Rev) => Rad/s
         } else {
             rightPos = pos * M_2_PI; // 1 Revolution * (2PI RAD/1 Rev)
-            rightVel = vel * M_2_PI / 60.0; // (1 Rev / Min) * (1 Min / 60 Seconds) * (2PI RAD/1 Rev) => Rad/s
+            rightVel = vel * M_2_PI / 60.0; // (1 Rev / Min) * (1 Min/ 60 Seconds) * (2PI RAD/1 Rev) => Rad/s
         }
     }
 

@@ -10,3 +10,4 @@ hardware_interface:
         - left_drive_wheel_joint
         - right_drive_wheel_joint
     sim_control_mode: 1 # 0: position, 1: velocity
+

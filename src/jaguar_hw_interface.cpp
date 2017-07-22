@@ -103,19 +103,10 @@ namespace jaguar_control {
 
 
         // Initialize PID controllers
-#ifndef DISABLE_PID
-        if(!leftPid.init(ros::NodeHandle(nh, "left_pid"))) {
-            ROS_ERROR("Could not construct left pid");
-        }
-
-
-        if(!rightPid.init(ros::NodeHandle(nh, "right_pid"))) {
-            ROS_ERROR("Could not construct right pid");
-        }
-
-        pidGainsSetter.add(&leftPid);
-        pidGainsSetter.add(&rightPid);
-        pidGainsSetter.advertise(nh);
+#ifndef CLOSED_LOOP
+        //Closed loop
+#else
+        //Open loop
 #endif
     }
 
@@ -126,39 +117,58 @@ namespace jaguar_control {
         //We also need to calcluate the left and right wheel velocity for the PID loop
 
         //Read from encoders here
-        double leftPos = this->leftPos; // RAD
-        double rightPos = this->rightPos; // RAD
-        double leftVel = this->leftVel; // RAD/S
-        double rightVel = this->rightVel; // RAD/S
+        double leftPos = this->leftPos;
+        double rightPos = this->rightPos;
+        double leftVel = this->leftVel;
+        double rightVel = this->rightVel;
 
+        joint_position_[leftJointIndex] = leftPos; //Rad
+        joint_position_[rightJointIndex] = rightPos; //Rad
 
-        joint_position_[leftJointIndex] = leftPos;
-        joint_position_[rightJointIndex] = rightPos;
-
-        joint_velocity_[leftJointIndex] = leftVel;
-        joint_velocity_[rightJointIndex] = rightVel;
+        joint_velocity_[leftJointIndex] = leftVel; //Rad/s
+        joint_velocity_[rightJointIndex] = rightVel; //Rad/s
     }
 
     void JaguarHWInterface::write(ros::Duration &elapsed_time) {
         //Safety, does nothing right now
         enforceLimits(elapsed_time);
 
+        // The command velocities are in Rad/Sec
         double leftCmdVel = joint_velocity_command_[leftJointIndex];
         double rightCmdVel = joint_velocity_command_[rightJointIndex];
 
-        ROS_DEBUG("Cmd Vel L:%f,R:%f", leftCmdVel, rightCmdVel);
+        ROS_INFO("Cmd L:%f, R:%f", leftCmdVel, rightCmdVel);
 
         double leftOutput = 0;
         double rightOutput = 0;
-#ifndef DISABLE_PID
-        // Some PID Stuff
-#endif
 
-        const double kV = 0.1; // Feedforward term
-        leftOutput = leftCmdVel * kV;
+        // Open Loop Control
+        // PID will be used in the future.
+        // https://www.chiefdelphi.com/forums/showpost.php?p=1108568&postcount=19
+
+        //leftOutput = leftCmdVel * 60.0 / (M_2_PI * 401.67) * (39.0/42.0);
+        //rightOutput = rightCmdVel * 60.0 / (M_2_PI * 401.67) * (39.0/42.0);
+
+        //Note: M_2_PI is 2/PI and M_PI_2 is PI/2, not 2*Pi
+        leftOutput = leftCmdVel * 60.0 / (2.0 * M_PI); // Rad/S -> RPM
+        rightOutput = rightCmdVel * 60.0 / (2.0 * M_PI); // Rad/S -> RPM
+
+        // Feedforward term
+        leftOutput *= 1.0/401.67; // RPM -> % Voltage
+        rightOutput *= 1.0/401.67; // RPM -> % Voltage
+
+        // Apply belt ratio
+        leftOutput *= 42.0 / 39.0;
+        rightOutput *= 42.0 / 39.0;
+
+        //Invert Left side
+        leftOutput *= -1.0;
+
+        // Limit output between -1.0 and 1.0
         if(1.0 <= fabs(leftOutput)) leftOutput = std::copysign(1.0, leftOutput);
-        rightOutput = rightCmdVel * kV;
         if(1.0 <= fabs(rightOutput)) rightOutput = std::copysign(1.0, rightOutput);
+
+        ROS_INFO("Out L: %f, R: %f", leftOutput, rightOutput);
 
         // This is really important, or the jaguars will stutter
         broadcaster->heartbeat();
@@ -219,11 +229,12 @@ namespace jaguar_control {
 
     void JaguarHWInterface::odomCallback(Side side, double pos, double vel) {
         if(kLeftJaguar == side) {
-            leftPos = pos * M_2_PI; // 1 Revolution * (2PI RAD/1 Rev)
-            leftVel = vel * M_2_PI / 60.0; // (1 Rev / Min) * (60 Seconds / 1 Min) * (2PI RAD/1 Rev) => Rad/s
+            // Also invert left side
+            leftPos = pos * (2.0 * M_PI) * (39.0/42.0) * -1.0; // 1 Revolution * (2PI RAD/1 Rev)
+            leftVel = vel * (2.0 * M_PI) / 60.0 * (39.0/42.0) * -1.0; // (1 Rev / Min) * (60 Seconds / 1 Min) * (2PI RAD/1 Rev) => Rad/s
         } else {
-            rightPos = pos * M_2_PI; // 1 Revolution * (2PI RAD/1 Rev)
-            rightVel = vel * M_2_PI / 60.0; // (1 Rev / Min) * (1 Min/ 60 Seconds) * (2PI RAD/1 Rev) => Rad/s
+            rightPos = pos * (2.0 * M_PI) * (39.0/42.0); // 1 Revolution * (2PI RAD/1 Rev)
+            rightVel = vel * (2.0 * M_PI) / 60.0 * (39.0/42.0); // (1 Rev / Min) * (1 Min/ 60 Seconds) * (2PI RAD/1 Rev) => Rad/s
         }
     }
 

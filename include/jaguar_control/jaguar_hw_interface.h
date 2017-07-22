@@ -5,7 +5,7 @@
 #ifndef JAGUAR_CONTROL_JAGUAR_HW_INTERFACE_H
 #define JAGUAR_CONTROL_JAGUAR_HW_INTERFACE_H
 
-#define DISABLE_PID
+//#define CLOSED_LOOP
 
 #include <atomic>
 #include <cstddef>
@@ -62,11 +62,6 @@ namespace jaguar_control {
         void odomCallback(Side side, double pos, double vel);
         void diagCallback(Side side, jaguar::LimitStatus::Enum limits, jaguar::Fault::Enum faults, double voltage, double temp);
 
-#ifndef DISABLE_PID
-        control_toolbox::Pid leftPid;
-        control_toolbox::Pid rightPid;
-        control_toolbox::PidGainsSetter pidGainsSetter;
-#endif
         std::size_t leftJointIndex;
         std::size_t rightJointIndex;
     };

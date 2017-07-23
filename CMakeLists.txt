@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
     hardware_interface
     ros_control_boilerplate
     control_toolbox
+    std_msgs
 )
 
 set(CMAKE_CXX_STANDARD 11)

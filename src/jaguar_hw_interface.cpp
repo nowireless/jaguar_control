@@ -2,9 +2,11 @@
 // Created by ryan on 7/16/17.
 //
 
+
+#include <cmath>
 #include <boost/signals2.hpp>
 #include <jaguar_control/jaguar_hw_interface.h>
-#include <cmath>
+#include <std_msgs/Float32.h>
 
 using namespace ros_control_boilerplate;
 using namespace jaguar;
@@ -50,8 +52,8 @@ namespace jaguar_control {
         broadcaster->heartbeat();
 
         //TODO Get from ROS Param
-        int leftId = 4;
-        int rightId = 2;
+        int leftId = 2;
+        int rightId = 4;
 
         leftJag = std::unique_ptr<Jaguar>(new Jaguar(*bridge, leftId));
         rightJag = std::unique_ptr<Jaguar>(new Jaguar(*bridge, rightId));
@@ -103,8 +105,25 @@ namespace jaguar_control {
 
 
         // Initialize PID controllers
-#ifndef CLOSED_LOOP
+#ifdef CLOSED_LOOP
         //Closed loop
+        ros::NodeHandle leftNh(nh, "left_pid");
+        if(!leftPid.init(leftNh)) {
+            ROS_ERROR("Could not initialize left PID");
+        }
+
+        ros::NodeHandle rightNh(nh, "right_pid");
+        if(!rightPid.init(rightNh)) {
+            ROS_ERROR("Could not initialize right PID");
+        }
+
+        leftPidSetter.add(&leftPid);
+        leftPidSetter.advertise(leftNh);
+        rightPidSetter.add(&rightPid);
+        rightPidSetter.advertise(rightNh);
+
+        leftPidErrorPub = leftNh.advertise<std_msgs::Float32>("error", 10);
+        rightPidErrorPub = rightNh.advertise<std_msgs::Float32>("error", 10);
 #else
         //Open loop
 #endif
@@ -137,32 +156,33 @@ namespace jaguar_control {
         double leftCmdVel = joint_velocity_command_[leftJointIndex];
         double rightCmdVel = joint_velocity_command_[rightJointIndex];
 
+        double leftCmdRpm = leftCmdVel * 60.0 / (2.0 * M_PI); // Rad/S -> RPM
+        double rightCmdRpm = rightCmdVel * 60.0 / (2.0 * M_PI); // Rad/S -> RPM
+
         ROS_INFO("Cmd L:%f, R:%f", leftCmdVel, rightCmdVel);
 
         double leftOutput = 0;
         double rightOutput = 0;
 
-        // Open Loop Control
-        // PID will be used in the future.
+        // Open Loop Control / Calculate Feedforward term
         // https://www.chiefdelphi.com/forums/showpost.php?p=1108568&postcount=19
+        leftOutput = leftCmdRpm * 1.0/401.67; // RPM -> % Voltage
+        rightOutput = rightCmdRpm * 1.0/401.67; // RPM -> % Voltage
 
-        //leftOutput = leftCmdVel * 60.0 / (M_2_PI * 401.67) * (39.0/42.0);
-        //rightOutput = rightCmdVel * 60.0 / (M_2_PI * 401.67) * (39.0/42.0);
+#ifdef CLOSED_LOOP
+        double leftError = leftCmdVel - leftVel;
+        leftOutput += leftPid.computeCommand(leftError, elapsed_time);
 
-        //Note: M_2_PI is 2/PI and M_PI_2 is PI/2, not 2*Pi
-        leftOutput = leftCmdVel * 60.0 / (2.0 * M_PI); // Rad/S -> RPM
-        rightOutput = rightCmdVel * 60.0 / (2.0 * M_PI); // Rad/S -> RPM
-
-        // Feedforward term
-        leftOutput *= 1.0/401.67; // RPM -> % Voltage
-        rightOutput *= 1.0/401.67; // RPM -> % Voltage
+        double rightError = rightCmdVel - rightVel;
+        rightOutput += rightPid.computeCommand(rightError, elapsed_time);
+#endif
 
         // Apply belt ratio
         leftOutput *= 42.0 / 39.0;
         rightOutput *= 42.0 / 39.0;
 
-        //Invert Left side
-        leftOutput *= -1.0;
+        //Invert Right side
+        rightOutput *= -1.0;
 
         // Limit output between -1.0 and 1.0
         if(1.0 <= fabs(leftOutput)) leftOutput = std::copysign(1.0, leftOutput);
@@ -175,6 +195,16 @@ namespace jaguar_control {
 
         ROS_DEBUG("Out L:%f, R:%f", leftOutput, rightOutput);
         this->block(leftJag->voltage_set(leftOutput), rightJag->voltage_set(rightOutput));
+
+        // Publish Error
+        std_msgs::Float32 leftErrorMsg;
+        std_msgs::Float32 rightErrorMsg;
+
+        leftErrorMsg.data = leftError;
+        rightErrorMsg.data = rightError;
+
+        leftPidErrorPub.publish(leftErrorMsg);
+        rightPidErrorPub.publish(rightErrorMsg);
 
     }
 
@@ -229,12 +259,12 @@ namespace jaguar_control {
 
     void JaguarHWInterface::odomCallback(Side side, double pos, double vel) {
         if(kLeftJaguar == side) {
-            // Also invert left side
-            leftPos = pos * (2.0 * M_PI) * (39.0/42.0) * -1.0; // 1 Revolution * (2PI RAD/1 Rev)
-            leftVel = vel * (2.0 * M_PI) / 60.0 * (39.0/42.0) * -1.0; // (1 Rev / Min) * (60 Seconds / 1 Min) * (2PI RAD/1 Rev) => Rad/s
+            leftPos = pos * (2.0 * M_PI) * (39.0/42.0); // 1 Revolution * (2PI RAD/1 Rev)
+            leftVel = vel * (2.0 * M_PI) / 60.0 * (39.0/42.0); // (1 Rev / Min) * (60 Seconds / 1 Min) * (2PI RAD/1 Rev) => Rad/s
         } else {
-            rightPos = pos * (2.0 * M_PI) * (39.0/42.0); // 1 Revolution * (2PI RAD/1 Rev)
-            rightVel = vel * (2.0 * M_PI) / 60.0 * (39.0/42.0); // (1 Rev / Min) * (1 Min/ 60 Seconds) * (2PI RAD/1 Rev) => Rad/s
+            // Also invert left side
+            rightPos = pos * (2.0 * M_PI) * (39.0/42.0) * -1.0; // 1 Revolution * (2PI RAD/1 Rev)
+            rightVel = vel * (2.0 * M_PI) / 60.0 * (39.0/42.0) * -1.0; // (1 Rev / Min) * (1 Min/ 60 Seconds) * (2PI RAD/1 Rev) => Rad/s
         }
     }
 

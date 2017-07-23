@@ -5,14 +5,14 @@
 #ifndef JAGUAR_CONTROL_JAGUAR_HW_INTERFACE_H
 #define JAGUAR_CONTROL_JAGUAR_HW_INTERFACE_H
 
-//#define CLOSED_LOOP
+#define CLOSED_LOOP
 
 #include <atomic>
 #include <cstddef>
 #include <memory>
 #include <control_toolbox/pid.h>
 
-#ifndef DISABLE_PID
+#ifdef CLOSED_LOOP
 #include <control_toolbox/pid.h>
 #include <control_toolbox/pid_gains_setter.h>
 #endif
@@ -46,7 +46,13 @@ namespace jaguar_control {
 
         void block(can::TokenPtr l, can::TokenPtr r);
 
+        void diagCallback(Side side, jaguar::LimitStatus::Enum limits, jaguar::Fault::Enum faults, double voltage, double temp);
+        void odomCallback(Side side, double pos, double vel);
+
         ros::NodeHandle nh;
+
+        std::size_t leftJointIndex;
+        std::size_t rightJointIndex;
 
         std::unique_ptr<can::JaguarBridge> bridge;
         std::unique_ptr<jaguar::JaguarBroadcaster> broadcaster;
@@ -59,11 +65,13 @@ namespace jaguar_control {
         std::atomic<double> leftVel;
         std::atomic<double> rightVel;
 
-        void odomCallback(Side side, double pos, double vel);
-        void diagCallback(Side side, jaguar::LimitStatus::Enum limits, jaguar::Fault::Enum faults, double voltage, double temp);
+        control_toolbox::Pid leftPid;
+        control_toolbox::Pid rightPid;
+        control_toolbox::PidGainsSetter leftPidSetter;
+        control_toolbox::PidGainsSetter rightPidSetter;
 
-        std::size_t leftJointIndex;
-        std::size_t rightJointIndex;
+        ros::Publisher leftPidErrorPub;
+        ros::Publisher rightPidErrorPub;
     };
 }
 

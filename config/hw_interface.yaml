@@ -10,4 +10,18 @@ hardware_interface:
         - left_drive_wheel_joint
         - right_drive_wheel_joint
     sim_control_mode: 1 # 0: position, 1: velocity
+    
+jaguar_hw_interface:
+    left_pid:
+        p: 0.0
+        i: 0.0
+        d: 0.0
+        i_clamp: 0.0
+
+    right_pid: 
+        p: 0.0
+        i: 0.0
+        d: 0.0
+        i_clamp: 0.0
+
 

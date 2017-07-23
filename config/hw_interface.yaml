@@ -24,14 +24,15 @@ jaguar_hw_interface:
     odom_rate_ms: 20
     diag_rate_ms: 500
 
+    # Any value of P larger than say 0.05 is way way too much
     left_pid:
-        p: 0.0
+        p: 0.025
         i: 0.0
         d: 0.0
         i_clamp: 0.0
 
     right_pid: 
-        p: 0.0
+        p: 0.025
         i: 0.0
         d: 0.0
         i_clamp: 0.0

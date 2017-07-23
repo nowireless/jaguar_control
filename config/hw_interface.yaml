@@ -12,6 +12,18 @@ hardware_interface:
     sim_control_mode: 1 # 0: position, 1: velocity
     
 jaguar_hw_interface:
+    left_id: 2
+    right_id: 4
+    encoder_ticks: 360
+    enable_brake: true
+
+    left_ff: 0.00248960589 # 1.0/401.67
+    right_ff: 0.00248960589 # 1.0/401.67
+
+    # Not currently used
+    odom_rate_ms: 20
+    diag_rate_ms: 500
+
     left_pid:
         p: 0.0
         i: 0.0

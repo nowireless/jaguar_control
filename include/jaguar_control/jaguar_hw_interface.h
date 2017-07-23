@@ -70,6 +70,9 @@ namespace jaguar_control {
         control_toolbox::PidGainsSetter leftPidSetter;
         control_toolbox::PidGainsSetter rightPidSetter;
 
+        double leftFF;
+        double rightFF;
+
         ros::Publisher leftPidErrorPub;
         ros::Publisher rightPidErrorPub;
     };

@@ -52,8 +52,18 @@ namespace jaguar_control {
         broadcaster->heartbeat();
 
         //TODO Get from ROS Param
-        int leftId = 2;
-        int rightId = 4;
+        int leftId;
+        if(!this->nh.getParam("left_id", leftId)) {
+            ROS_FATAL("No left id");
+            ros::shutdown();
+            exit(1);
+        }
+        int rightId;
+        if(!this->nh.getParam("right_id", rightId)) {
+            ROS_FATAL("No right id");
+            ros::shutdown();
+            exit(1);
+        }
 
         leftJag = std::unique_ptr<Jaguar>(new Jaguar(*bridge, leftId));
         rightJag = std::unique_ptr<Jaguar>(new Jaguar(*bridge, rightId));
@@ -65,6 +75,7 @@ namespace jaguar_control {
 
         // Configure Brake mode
         bool enableBrake = true;
+        this->nh.getParam("enable_brake", enableBrake);
         if(enableBrake) {
             ROS_INFO("Configuring break override");
             this->block(leftJag->config_brake_set(BrakeCoastSetting::kOverrideBrake),
@@ -81,9 +92,15 @@ namespace jaguar_control {
         block(leftJag->position_set_reference(jaguar::PositionReference::kQuadratureEncoder),
               rightJag->position_set_reference(jaguar::PositionReference::kQuadratureEncoder));
 
-        int encoderTicks = 360;
-        block(leftJag->config_encoders_set(360),
-              rightJag->config_encoders_set(360));
+        int encoderTicks;
+        if(!this->nh.getParam("encoder_ticks", encoderTicks)) {
+            ROS_FATAL("No encoder_ticks");
+            ros::shutdown();
+            exit(1);
+        }
+        ROS_INFO("Encoder ticks: %i", encoderTicks);
+        block(leftJag->config_encoders_set(encoderTicks),
+              rightJag->config_encoders_set(encoderTicks));
 
         // Configure odom callback
         block(leftJag->periodic_config_odom(0, boost::bind(&jaguar_control::JaguarHWInterface::odomCallback, this, kLeftJaguar, _1, _2)),
@@ -99,9 +116,6 @@ namespace jaguar_control {
         block(leftJag->periodic_enable(1, diagUpdateRateMS),
               rightJag->periodic_enable(1, diagUpdateRateMS));
 
-        ROS_INFO("Enabling");
-        this->block(leftJag->voltage_enable(), rightJag->voltage_enable());
-        broadcaster->system_resume();
 
 
         // Initialize PID controllers
@@ -109,12 +123,16 @@ namespace jaguar_control {
         //Closed loop
         ros::NodeHandle leftNh(nh, "left_pid");
         if(!leftPid.init(leftNh)) {
-            ROS_ERROR("Could not initialize left PID");
+            ROS_FATAL("Could not initialize left PID");
+            ros::shutdown();
+            exit(1);
         }
 
         ros::NodeHandle rightNh(nh, "right_pid");
         if(!rightPid.init(rightNh)) {
-            ROS_ERROR("Could not initialize right PID");
+            ROS_FATAL("Could not initialize right PID");
+            ros::shutdown();
+            exit(1);
         }
 
         leftPidSetter.add(&leftPid);
@@ -124,9 +142,26 @@ namespace jaguar_control {
 
         leftPidErrorPub = leftNh.advertise<std_msgs::Float32>("error", 10);
         rightPidErrorPub = rightNh.advertise<std_msgs::Float32>("error", 10);
-#else
-        //Open loop
 #endif
+
+        if(!this->nh.getParam("left_ff", this->leftFF)) {
+            ROS_FATAL("No left_ff");
+            ros::shutdown();
+            exit(1);
+        }
+        ROS_INFO("Left Feedforward: %f", leftFF);
+
+        if(!this->nh.getParam("right_ff", this->rightFF)) {
+            ROS_FATAL("No right_ff");
+            ros::shutdown();
+            exit(1);
+        }
+        ROS_INFO("Right Feedforward: %f", rightFF);
+
+        ROS_INFO("Enabling");
+        this->block(leftJag->voltage_enable(), rightJag->voltage_enable());
+        broadcaster->system_resume();
+
     }
 
     void JaguarHWInterface::read(ros::Duration &elapsed_time) {
@@ -166,8 +201,8 @@ namespace jaguar_control {
 
         // Open Loop Control / Calculate Feedforward term
         // https://www.chiefdelphi.com/forums/showpost.php?p=1108568&postcount=19
-        leftOutput = leftCmdRpm * 1.0/401.67; // RPM -> % Voltage
-        rightOutput = rightCmdRpm * 1.0/401.67; // RPM -> % Voltage
+        leftOutput = leftCmdRpm * leftFF; // RPM -> % Voltage
+        rightOutput = rightCmdRpm * rightFF; // RPM -> % Voltage
 
 #ifdef CLOSED_LOOP
         double leftError = leftCmdVel - leftVel;
